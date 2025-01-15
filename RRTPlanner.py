@@ -13,6 +13,18 @@ class RRTPlanner(object):
         # set search params
         self.ext_mode = ext_mode
         self.goal_prob = goal_prob
+        self.step_size = 1
+
+    def sample(self):
+        if np.random.rand() < self.goal_prob:
+            return self.planning_env.goal
+        else:
+            while True:
+                x_val = np.random.uniform(self.planning_env.xlimit[0], self.planning_env.xlimit[1])
+                y_val = np.random.uniform(self.planning_env.ylimit[0], self.planning_env.ylimit[1])
+                sampled = np.array([x_val, y_val])
+                if not np.array_equal(sampled, self.planning_env.goal) and self.planning_env.state_validity_checker(sampled):
+                    return sampled
 
     def plan(self):
         '''
@@ -21,24 +33,39 @@ class RRTPlanner(object):
         start_time = time.time()
 
         # initialize an empty plan.
-        plan = []
 
         # TODO: Task 3
-        
+        q_0 = self.planning_env.start
+        q_dest = self.planning_env.goal
+        self.tree.add_vertex(q_0) ## T.Init(q_0)
+        while True:
+            q_rand = self.sample()
+            q_near_id , q_near = self.tree.get_nearest_state(q_rand)
+            # q_near = np.array(q_near)
+            q_new = self.extend(q_near,q_rand)
+            if self.planning_env.edge_validity_checker(q_new, q_near):
+                self.tree.add_vertex(q_new)
+                new_idx = self.tree.get_idx_for_state(q_new)
+                self.tree.add_edge(q_near_id, new_idx,self.planning_env.compute_distance(q_near, q_new))
+                if np.array_equal(q_dest, q_new):
+                    break
         # print total path cost and time
-        print('Total cost of path: {:.2f}'.format(self.compute_cost(plan)))
+        path,cost = self.reconstruct_path(q_dest)
+        print('Total cost of path: {:.2f}'.format(self.compute_cost(cost)))
         print('Total time: {:.2f}'.format(time.time()-start_time))
 
-        return np.array(plan)
+        return np.array(path)
 
-    def compute_cost(self, plan):
+    def compute_cost(self, path):
         '''
         Compute and return the plan cost, which is the sum of the distances between steps.
         @param plan A given plan for the robot.
         '''
-        # TODO: Task 3
+        cost = 0
+        for step in path:
+            cost += step
+        return cost
 
-        pass
 
     def extend(self, near_state, rand_state):
         '''
@@ -48,4 +75,33 @@ class RRTPlanner(object):
         '''
         # TODO: Task 3
 
-        pass
+        length = self.planning_env.compute_distance(near_state, rand_state)
+        if self.ext_mode == 'E1':
+            return rand_state
+        elif self.ext_mode == 'E2':
+            if length < self.step_size:
+                return rand_state
+            ratio = self.step_size / length
+            x_val = near_state[0]*(1-ratio) + rand_state[0]*ratio
+            y_val = near_state[1]*(1-ratio) + rand_state[1]*ratio
+            return np.array([x_val, y_val])
+
+
+    def reconstruct_path(self, goal):
+        path = []
+        cost = []
+        current_idx = self.tree.get_idx_for_state(goal)  # Get the index of the goal state
+        path.append(goal)
+        cost.append(self.tree.vertices[current_idx].cost)
+        while current_idx is not None:
+            # Retrieve the state corresponding to the current vertex ID
+            current_idx = self.tree.edges.get(current_idx)
+            vertex = self.tree.vertices.get(current_idx)
+            if vertex is None:
+                break
+            path.append(vertex.state)
+            cost.append(vertex.cost)
+
+
+        path.reverse()  # Reverse the path to get it from start to goal
+        return path,cost
