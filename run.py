@@ -29,6 +29,7 @@ if __name__ == "__main__":
 
     # execute plan
     plan = planner.plan()
+    # print(plan)
     # visualize the final path with edges or states according to the requested planner.
     if args.planner == 'rcs':
         planner.planning_env.visualize_map(plan=plan, expanded_nodes=planner.get_expanded_nodes())

@@ -13,7 +13,7 @@ class RRTPlanner(object):
         # set search params
         self.ext_mode = ext_mode
         self.goal_prob = goal_prob
-        self.step_size = 1
+        self.step_size = 5
 
     def sample(self):
         if np.random.rand() < self.goal_prob:
@@ -50,8 +50,8 @@ class RRTPlanner(object):
                 if np.array_equal(q_dest, q_new):
                     break
         # print total path cost and time
-        path,cost = self.reconstruct_path(q_dest)
-        print('Total cost of path: {:.2f}'.format(self.compute_cost(cost)))
+        path = self.reconstruct_path(q_dest)
+        print('Total cost of path: {:.2f}'.format(self.compute_cost(path)))
         print('Total time: {:.2f}'.format(time.time()-start_time))
 
         return np.array(path)
@@ -61,11 +61,14 @@ class RRTPlanner(object):
         Compute and return the plan cost, which is the sum of the distances between steps.
         @param plan A given plan for the robot.
         '''
+        # cost = 0
+        # for step in path:
+        #     cost += step
+        # return cost
         cost = 0
-        for step in path:
-            cost += step
+        for i in range(len(path) - 1):
+            cost += np.linalg.norm(path[i] - path[i+1])
         return cost
-
 
     def extend(self, near_state, rand_state):
         '''
@@ -89,10 +92,8 @@ class RRTPlanner(object):
 
     def reconstruct_path(self, goal):
         path = []
-        cost = []
         current_idx = self.tree.get_idx_for_state(goal)  # Get the index of the goal state
         path.append(goal)
-        cost.append(self.tree.vertices[current_idx].cost)
         while current_idx is not None:
             # Retrieve the state corresponding to the current vertex ID
             current_idx = self.tree.edges.get(current_idx)
@@ -100,8 +101,7 @@ class RRTPlanner(object):
             if vertex is None:
                 break
             path.append(vertex.state)
-            cost.append(vertex.cost)
 
 
         path.reverse()  # Reverse the path to get it from start to goal
-        return path,cost
+        return path
